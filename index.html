@@ -164,7 +164,7 @@ body{background:var(--cream);color:var(--text);font-family:'Nunito',sans-serif;h
   <div class="header-right">
     <div class="live-pill"><div class="live-dot"></div><span class="live-text">Live</span></div>
     <button class="hbtn" onclick="showResumen()">📊</button>
-    <button class="hbtn" onclick="fetchData()">↻</button>
+    <button class="hbtn" onclick="render()">↻</button>
   </div>
 </div>
 
@@ -202,7 +202,7 @@ body{background:var(--cream);color:var(--text);font-family:'Nunito',sans-serif;h
 <div class="notify-float" id="notify-float"><a href="#" onclick="return false;" id="notify-link" style="cursor:pointer">📱 Avisar por WhatsApp</a></div>
 
 <script>
-const SHEET_URL='https://script.google.com/macros/s/AKfycby274Dyoyw4VxTBCHmCZJFP0MiOl6xYGrk24adi2UNHd0IN12lf3OD9hbrjtIdIJVrK/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbx7v7Eso1mlEt4wKUaWkvYc7NXkIwB5OGeaM6itZIi3tsw2GgZ_U2nr7_18023SFqkC/exec';
 const SCRIPT_URL=SHEET_URL; // mismo endpoint, doPost maneja notificaciones
 const FRANJAS=['20:30 – 21:00','21:00 – 21:30','21:30 – 22:00','22:00 – 22:30','22:30 – 23:00','23:00 – 23:30'];
 const MAX_F=8;
@@ -568,7 +568,22 @@ function updateTimers(){
     });
   });
 }
+async function fetchData(){
+  try{
+    const res = await fetch(SHEET_URL);
+    const data = await res.json();
 
+    pedidos = parsePedidos(data.values || []);
+    checkNew(pedidos.length);
+    render();
+
+  }catch(err){
+    console.error(err);
+    showToast('⚠ Error cargando pedidos');
+  }
+}
+fetchData();
+setInterval(fetchData,30000);
 setInterval(updateTimers,1000);
 </script>
 </body>
