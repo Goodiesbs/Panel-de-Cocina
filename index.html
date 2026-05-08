@@ -499,7 +499,7 @@ function checkNew(n){
   lastCount=n;
 }
 
-async async function sendNotificacion(p){
+async function sendNotificacion(p){
   // Limpiar número de WhatsApp — eliminar espacios, guiones, paréntesis
   const rawNum = (p.whatsapp||p.telefono||'').replace(/[\s\-\(\)]/g,'');
   if(!rawNum || rawNum.length < 8 || rawNum === '—'){
