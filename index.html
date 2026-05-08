@@ -297,7 +297,8 @@ function cycleItem(id,item){
       // Auto-send si hay Instagram ID o usuario
       const hasContact = (p.whatsapp||p.telefono||'').replace(/[^0-9]/g,'').length >= 8;
       if(hasContact){
-        console.log(p);sendNotificacion(p);
+        console.log('ENVIANDO', p);
+sendNotificacion(p);
         showToast('✅ Listo — avisando a ' + p.nombre + '...');
       } else {
         showToast('✅ Listo — avisá al cliente manualmente');
