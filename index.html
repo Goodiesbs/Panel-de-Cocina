@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -198,10 +199,11 @@ body{background:var(--cream);color:var(--text);font-family:'Nunito',sans-serif;h
 </div>
 
 <div class="toast" id="toast"></div>
-<div class="notify-float" id="notify-float"><a href="https://ig.me/m/goodiesbs" target="_blank" id="notify-link">📩 Avisar por Instagram</a></div>
+<div class="notify-float" id="notify-float"><a href="#" onclick="return false;" id="notify-link" style="cursor:pointer">📱 Avisar por WhatsApp</a></div>
 
 <script>
 const SHEET_URL='https://script.google.com/macros/s/AKfycby274Dyoyw4VxTBCHmCZJFP0MiOl6xYGrk24adi2UNHd0IN12lf3OD9hbrjtIdIJVrK/exec';
+const SCRIPT_URL=SHEET_URL; // mismo endpoint, doPost maneja notificaciones
 const FRANJAS=['20:30 – 21:00','21:00 – 21:30','21:30 – 22:00','22:00 – 22:30','22:30 – 23:00','23:00 – 23:30'];
 const MAX_F=8;
 let pedidos=[];
@@ -280,17 +282,26 @@ function cycleItem(id,item){
     else if(next==='done') e.pEnd=now;
     else {e.pStart=null;e.pEnd=null;}
   }
-  // Check if all done → show notify button
+  // Check if all done → show notify button + send webhook
   const p=pedidos.find(x=>x.id===id);
   if(p){
     const hb=tieneBurger(p);
     if(cardStatus(id,hb)==='all-done'){
       const nf=document.getElementById('notify-float');
-      document.getElementById('notify-link').textContent=`📩 Avisar a ${p.nombre} por Instagram`;
+      document.getElementById('notify-link').textContent=`📱 Avisar a ${p.nombre} por WhatsApp`;
       nf.classList.add('show');
+      nf._pedido = p;
+      document.getElementById('notify-link').onclick = (e)=>{ e.preventDefault(); sendNotificacion(nf._pedido); nf.classList.remove('show'); };
       if(notifyTimer) clearTimeout(notifyTimer);
       notifyTimer=setTimeout(()=>nf.classList.remove('show'),7000);
-      showToast('✅ Listo — avisá al cliente');
+      // Auto-send si hay Instagram ID o usuario
+      const hasContact = (p.whatsapp||p.telefono||'').replace(/[^0-9]/g,'').length >= 8;
+      if(hasContact){
+        sendNotificacion(p);
+        showToast('✅ Listo — avisando a ' + p.nombre + '...');
+      } else {
+        showToast('✅ Listo — avisá al cliente manualmente');
+      }
     } else {
       showToast(next==='cooking'?'🔥 Empezando...':next==='done'?'✅ Listo!':'↩ Reiniciado');
     }
@@ -450,6 +461,8 @@ function parsePedidos(rows){
   const col=n=>h.findIndex(x=>x&&x.toString().toLowerCase().includes(n.toLowerCase()));
   const iC=col('Combo'),iA=col('Adicionales'),iE=col('Entrega');
   const iH=col('Horario'),iN=col('Nombre'),iTo=col('Total'),iTs=0;
+  const iIg=col('Instagram');
+  const iWa=col('WhatsApp');
   const td=today();
   return rows.slice(1).filter(r=>{
     if(!r[iN]) return false;
@@ -465,7 +478,8 @@ function parsePedidos(rows){
     id:i,timestamp:r[iTs]?new Date(r[iTs]):new Date(),
     combo:r[iC]||'—',adicionales:r[iA]||'',
     entrega:(r[iE]||'retiro').toLowerCase(),
-    horario:r[iH]||'',nombre:r[iN]||'Sin nombre',total:r[iTo]||''
+    horario:r[iH]||'',nombre:r[iN]||'Sin nombre',total:r[iTo]||'',instagram:iIg>=0?(r[iIg]||''):'',
+    whatsapp:iWa>=0?(r[iWa]||''):(iIg>=0?(r[iIg]||''):'')
   }));
 }
 
@@ -485,50 +499,55 @@ function checkNew(n){
   lastCount=n;
 }
 
-async function fetchData(){
-  try{
-    const res=await fetch(SHEET_URL);
-    const data=await res.json();
-    // Support both old format (array) and new format (object with pedidos)
-    const rows=Array.isArray(data)?data:data.pedidos;
-    pedidos=parsePedidos(rows);
-    checkNew(pedidos.length);
-    render();
-    document.getElementById('last-update').textContent='Act. '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  }catch(e){
-    showToast('Error de conexión');
+async async function sendNotificacion(p){
+  // Limpiar número de WhatsApp — eliminar espacios, guiones, paréntesis
+  const rawNum = (p.whatsapp||p.telefono||'').replace(/[\s\-\(\)]/g,'');
+  if(!rawNum || rawNum.length < 8 || rawNum === '—'){
+    showToast('⚠ Sin WhatsApp — avisá manualmente');
+    mostrarBotonManual(p);
+    return;
   }
+
+  // Asegurar formato Argentina: si no empieza con 54, agregarlo
+  let num = rawNum;
+  if(num.startsWith('0')) num = num.slice(1);
+  if(!num.startsWith('54')) num = '54' + num;
+
+  // Mensaje diferenciado por tipo de entrega
+  let msg;
+  if(p.entrega === 'delivery'){
+    msg = '¡Hola ' + p.nombre + '! 🛵 Tu pedido de Goodies ya está en camino. ' +
+          'Combo: ' + p.combo + '. ' +
+          'En breve lo tenés en tu puerta. ¡Gracias por elegirnos! 🍔';
+  } else {
+    msg = '¡Hola ' + p.nombre + '! 🏠 Tu pedido de Goodies ya está listo para retirar. ' +
+          'Combo: ' + p.combo + '. ' +
+          'Pasá cuando quieras. ¡Gracias por elegirnos! 🍔';
+  }
+
+  const url = 'https://wa.me/' + num + '?text=' + encodeURIComponent(msg);
+
+  // Abrir WhatsApp con el mensaje pre-armado
+  window.open(url, '_blank');
+  showToast('📱 WhatsApp abierto — tocá enviar');
 }
 
-function showResumen(){
-  const total=pedidos.length;
-  if(!total){showToast('Sin pedidos esta noche');return;}
-  const delivery=pedidos.filter(p=>p.entrega==='delivery').length;
-  const retiro=pedidos.filter(p=>p.entrega==='retiro').length;
-  const combos={};
-  pedidos.forEach(p=>{combos[p.combo]=(combos[p.combo]||0)+1;});
-  const top=Object.entries(combos).sort((a,b)=>b[1]-a[1])[0];
-  const listos=pedidos.filter(p=>cardStatus(p.id,tieneBurger(p))==='all-done').length;
-  let rev=0;
-  pedidos.forEach(p=>{if(p.total){const n=parseInt(p.total.replace(/[^0-9]/g,''));if(!isNaN(n))rev+=n;}});
-
-  const m=document.createElement('div');
-  m.className='modal-bg';
-  m.innerHTML=`<div class="modal">
-    <div class="modal-title">Resumen de noche</div>
-    <div class="mgrid">
-      <div class="mbox"><div class="mbox-num or">${total}</div><div class="mbox-label">Pedidos</div></div>
-      <div class="mbox"><div class="mbox-num gr">${listos}</div><div class="mbox-label">Completados</div></div>
-      <div class="mbox"><div class="mbox-num or">🛵 ${delivery}</div><div class="mbox-label">Delivery</div></div>
-      <div class="mbox"><div class="mbox-num gr">🏠 ${retiro}</div><div class="mbox-label">Retiro</div></div>
-    </div>
-    ${top?`<div class="mrow"><div class="mrow-label">Combo más pedido</div><div class="mrow-val">${top[0]}</div><div class="mrow-sub">${top[1]} pedido${top[1]>1?'s':''}</div></div>`:''}
-    ${rev>0?`<div class="mtotal"><div class="mtotal-label">Total recaudado</div><div class="mtotal-val">$${rev.toLocaleString('es-AR')}</div></div>`:''}
-    <button class="mclose" onclick="this.closest('.modal-bg').remove()">Cerrar</button>
-  </div>`;
-  m.addEventListener('click',e=>{if(e.target===m)m.remove();});
-  document.body.appendChild(m);
+function mostrarBotonManual(p){
+  // Fallback: si no hay número, mostrar botón para abrir DM de Instagram
+  const nf = document.getElementById('notify-float');
+  const nl = document.getElementById('notify-link');
+  if(p.instagram && p.instagram.length > 1){
+    nl.href = 'https://ig.me/m/goodiesbs';
+    nl.textContent = '📩 Avisar a ' + p.nombre + ' por Instagram';
+  } else {
+    nl.href = '#';
+    nl.textContent = '⚠ Sin contacto — avisá manualmente';
+  }
+  nf.classList.add('show');
+  if(notifyTimer) clearTimeout(notifyTimer);
+  notifyTimer = setTimeout(()=>nf.classList.remove('show'), 8000);
 }
+
 
 // Timers update every second
 function updateTimers(){
