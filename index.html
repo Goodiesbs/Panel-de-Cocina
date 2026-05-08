@@ -416,7 +416,7 @@ function buildFranjas(panelId, mode){
         <div class="franja-right">
           <span class="franja-count">${count}/${MAX_F}</span>
           <span class="fbadge ${bc}">${bt}</span>
-          <span class="fchev ${isOpen?'open':''}"">▶</span>
+          <span class="fchev ${isOpen?'open':''}">▶</span>
         </div>
       </div>
       <div class="mini-bar"><div class="mini-fill" style="width:${Math.min(pct,1)*100}%;background:${fc}"></div></div>
@@ -569,8 +569,6 @@ function updateTimers(){
   });
 }
 
-fetchData();
-setInterval(fetchData,30000);
 setInterval(updateTimers,1000);
 </script>
 </body>
