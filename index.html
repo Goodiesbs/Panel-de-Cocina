@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -164,7 +163,7 @@ body{background:var(--cream);color:var(--text);font-family:'Nunito',sans-serif;h
   <div class="header-right">
     <div class="live-pill"><div class="live-dot"></div><span class="live-text">Live</span></div>
     <button class="hbtn" onclick="showResumen()">📊</button>
-    <button class="hbtn" onclick="render()">↻</button>
+    <button class="hbtn" onclick="fetchData()">↻</button>
   </div>
 </div>
 
@@ -202,7 +201,7 @@ body{background:var(--cream);color:var(--text);font-family:'Nunito',sans-serif;h
 <div class="notify-float" id="notify-float"><a href="#" onclick="return false;" id="notify-link" style="cursor:pointer">📱 Avisar por WhatsApp</a></div>
 
 <script>
-const SHEET_URL='https://script.google.com/macros/s/AKfycbx7v7Eso1mlEt4wKUaWkvYc7NXkIwB5OGeaM6itZIi3tsw2GgZ_U2nr7_18023SFqkC/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbyEzaO4rXBlHKGQxncBteDorsVUpOoVHbSCDS9fuxnTtJL4YXSRzqhaXHW_7NLYWZ9a/exec';
 const SCRIPT_URL=SHEET_URL; // mismo endpoint, doPost maneja notificaciones
 const FRANJAS=['20:30 – 21:00','21:00 – 21:30','21:30 – 22:00','22:00 – 22:30','22:30 – 23:00','23:00 – 23:30'];
 const MAX_F=8;
@@ -297,8 +296,7 @@ function cycleItem(id,item){
       // Auto-send si hay Instagram ID o usuario
       const hasContact = (p.whatsapp||p.telefono||'').replace(/[^0-9]/g,'').length >= 8;
       if(hasContact){
-        console.log('ENVIANDO', p);
-sendNotificacion(p);
+        sendNotificacion(p);
         showToast('✅ Listo — avisando a ' + p.nombre + '...');
       } else {
         showToast('✅ Listo — avisá al cliente manualmente');
@@ -417,7 +415,7 @@ function buildFranjas(panelId, mode){
         <div class="franja-right">
           <span class="franja-count">${count}/${MAX_F}</span>
           <span class="fbadge ${bc}">${bt}</span>
-          <span class="fchev ${isOpen?'open':''}">▶</span>
+          <span class="fchev ${isOpen?'open':''}"">▶</span>
         </div>
       </div>
       <div class="mini-bar"><div class="mini-fill" style="width:${Math.min(pct,1)*100}%;background:${fc}"></div></div>
@@ -500,7 +498,7 @@ function checkNew(n){
   lastCount=n;
 }
 
-async function sendNotificacion(p){
+async async function sendNotificacion(p){
   // Limpiar número de WhatsApp — eliminar espacios, guiones, paréntesis
   const rawNum = (p.whatsapp||p.telefono||'').replace(/[\s\-\(\)]/g,'');
   if(!rawNum || rawNum.length < 8 || rawNum === '—'){
@@ -569,20 +567,7 @@ function updateTimers(){
     });
   });
 }
-async function fetchData(){
-  try{
-    const res = await fetch(SHEET_URL);
-    const data = await res.json();
 
-    pedidos = parsePedidos(data.values || []);
-    checkNew(pedidos.length);
-    render();
-
-  }catch(err){
-    console.error(err);
-    showToast('⚠ Error cargando pedidos');
-  }
-}
 fetchData();
 setInterval(fetchData,30000);
 setInterval(updateTimers,1000);
